@@ -139,10 +139,33 @@ static int find_and_expire(struct maincache **cached, char *hex, int cachesecond
  * granted is what Mosquitto auth-plug actually granted
  */
 
+static void strip_topic (const char *topic, char *start_topic)
+{
+	int i, counter;
+
+	counter = 0;
+	for (i = 0; topic[i] != 0 && i < 255; i++){
+		if (topic[i] == '/'){
+			if (counter < 1){
+				start_topic[i] = topic[i];
+				counter++;
+			}
+			else{
+				break;
+			}
+		}
+		else{
+			start_topic[i] = topic[i];
+		}
+	}
+	start_topic[i] = 0;
+}
+
 void acl_cache(const char *username, const char *topic, int access, int granted, void *userdata)
 {
 	char hex[SHA_DIGEST_LENGTH * 2 + 1];
 	struct userdata *ud = (struct userdata *)userdata;
+	char start_topic[256];
 
 	if (ud->cacheseconds <= 0) {
 		return;
@@ -152,7 +175,8 @@ void acl_cache(const char *username, const char *topic, int access, int granted,
 		return;
 	}
 
-	hexify(username, topic, access, hex);
+	strip_topic (topic, start_topic);
+	hexify(username, start_topic, access, hex);
 
 	create_update(&ud->aclcache, hex, granted, ud->cacheseconds);
 }
@@ -161,6 +185,7 @@ int acl_cache_q(const char *username, const char *topic, int access, void *userd
 {
 	char hex[SHA_DIGEST_LENGTH * 2 + 1];
 	struct userdata *ud = (struct userdata *)userdata;
+	char start_topic[256];
 
 	if (ud->cacheseconds <= 0) {
 		return (MOSQ_ERR_UNKNOWN);
@@ -170,7 +195,8 @@ int acl_cache_q(const char *username, const char *topic, int access, void *userd
 		return (MOSQ_ERR_UNKNOWN);
 	}
 
-	hexify(username, topic, access, hex);
+	strip_topic (topic, start_topic);
+	hexify(username, start_topic, access, hex);
 
 	return find_and_expire(&ud->aclcache, hex, ud->cacheseconds);
 }
